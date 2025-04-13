@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Blocksy functions and definitions
  *
@@ -14,3 +15,8 @@ if (version_compare(PHP_VERSION, '5.7.0', '<')) {
 
 require get_template_directory() . '/inc/init.php';
 
+function blocksy_register_new_navigation()
+{
+	register_nav_menu('social_navigation', __('Social Navigation', 'blocksy'));
+}
+add_action('after_setup_theme', 'blocksy_register_new_navigation');

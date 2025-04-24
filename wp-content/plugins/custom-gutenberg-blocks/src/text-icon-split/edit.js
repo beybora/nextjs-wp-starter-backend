@@ -29,6 +29,10 @@ export default function Edit({ attributes, setAttributes }) {
 		setAttributes({ cards: updated });
 	};
 
+	const removeImage = (index) => {
+		updateCard(index, 'imageUrl', '');
+	};
+
 	return (
 		<div
 			{...useBlockProps({
@@ -116,19 +120,24 @@ export default function Edit({ attributes, setAttributes }) {
 								render={({ open }) => (
 									<Fragment>
 										{card.imageUrl ? (
-											<img
-												src={card.imageUrl}
-												alt=""
-												style={{
-													marginBottom: '0.5rem',
-													borderRadius: '0.5rem',
-													width: '4rem',
-													height: '4rem',
-													objectFit: 'contain',
-													border: '1px solid #e5e7eb',
-													display: 'block',
-												}}
-											/>
+											<div style={{ marginBottom: '0.5rem' }}>
+												<img
+													src={card.imageUrl}
+													alt=""
+													style={{
+														borderRadius: '0.5rem',
+														width: '4rem',
+														height: '4rem',
+														objectFit: 'contain',
+														border: '1px solid #e5e7eb',
+														display: 'block',
+														marginBottom: '0.5rem',
+													}}
+												/>
+												<Button onClick={() => removeImage(index)} variant="secondary" size="small" style={{ marginRight: '0.5rem' }}>
+													{__('Remove Image', 'textdomain')}
+												</Button>
+											</div>
 										) : (
 											<div
 												style={{

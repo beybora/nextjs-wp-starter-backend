@@ -1,17 +1,16 @@
 <?php // phpcs:ignore
 
 /**
- * Plugin Name: Add WPGraphQL SEO
- * Plugin URI: https://github.com/ashhitch/wp-graphql-yoast-seo
- * Description: A WPGraphQL Extension that adds support for Yoast SEO
- * Author: Ash Hitchcock
- * Author URI: https://www.ashleyhitchcock.com
- * Text Domain: wp-graphql-yoast-seo
- * Domain Path: /languages
- * Version: v4.23.2
- * Requires Plugins: wp-graphql, wordpress-seo
+ * Plugin Name:     Add WPGraphQL SEO
+ * Plugin URI:      https://github.com/ashhitch/wp-graphql-yoast-seo
+ * Description:     A WPGraphQL Extension that adds support for Yoast SEO
+ * Author:          Ash Hitchcock
+ * Author URI:      https://www.ashleyhitchcock.com
+ * Text Domain:     wp-graphql-yoast-seo
+ * Domain Path:     /languages
+ * Version:         4.22.1
  *
- * @package WP_Graphql_YOAST_SEO
+ * @package         WP_Graphql_YOAST_SEO
  */
 
 if (!defined('ABSPATH')) {
@@ -131,7 +130,6 @@ add_action('graphql_init', function () {
                         'default',
                         12 * HOUR_IN_SECONDS + mt_rand(0, 4 * HOUR_IN_SECONDS) // phpcs:ignore
                     );
-                    $id = null; // Set $id to null instead of false
                 } else {
                     wp_cache_set(
                         $cache_key,
@@ -141,7 +139,7 @@ add_action('graphql_init', function () {
                     );
                 }
             } elseif ('not_found' === $id) {
-                return null; // Return null instead of false
+                return false;
             }
 
             return $id;
@@ -155,18 +153,6 @@ add_action('graphql_init', function () {
             $post_type_object = get_post_type_object($type);
             if ($post_type_object->graphql_single_name) {
                 $carry[wp_gql_seo_get_field_key($post_type_object->graphql_single_name)] = ['type' => 'SEOContentType'];
-            }
-        }
-        return $carry;
-    }
-
-    function wp_gql_seo_build_taxonomy_types($taxonomies)
-    {
-        $carry = [];
-        foreach ($taxonomies as $taxonomy) {
-            $taxonomy_object = get_taxonomy($taxonomy);
-            if ($taxonomy_object->graphql_single_name) {
-                $carry[wp_gql_seo_get_field_key($taxonomy_object->graphql_single_name)] = ['type' => 'SEOTaxonomyType'];
             }
         }
         return $carry;
@@ -190,177 +176,60 @@ add_action('graphql_init', function () {
     function wp_gql_seo_build_content_type_data($types, $all)
     {
         $carry = [];
-
-        // Validate input parameters
-        if (!is_array($types) || empty($types) || !is_array($all) || empty($all)) {
-            return $carry;
-        }
-
         foreach ($types as $type) {
             $post_type_object = get_post_type_object($type);
 
-            // Validate post type object
-            if (!$post_type_object || !$post_type_object->graphql_single_name) {
-                continue;
-            }
+            if ($post_type_object->graphql_single_name) {
+                $tag = wp_gql_seo_get_field_key($post_type_object->graphql_single_name);
 
-            $tag = wp_gql_seo_get_field_key($post_type_object->graphql_single_name);
+                $meta = YoastSEO()->meta->for_post_type_archive($type);
 
-            $meta = YoastSEO()->meta->for_post_type_archive($type);
+                $carry[$tag] = [
+                    'title' => !empty($all['title-' . $type])
+                        ? wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['title-' . $type]))
+                        : null,
+                    'metaDesc' => !empty($all['metadesc-' . $type])
+                        ? wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['metadesc-' . $type]))
+                        : null,
+                    'metaRobotsNoindex' => !empty($all['noindex-' . $type]) ? boolval($all['noindex-' . $type]) : false,
+                    'schemaType' => !empty($all['schema-page-type-' . $type])
+                        ? $all['schema-page-type-' . $type]
+                        : null,
 
-            $carry[$tag] = [
-                'title' => wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['title-' . $type] ?? null)),
-                'metaDesc' => wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['metadesc-' . $type] ?? null)),
-                'metaRobotsNoindex' => boolval($all['noindex-' . $type] ?? false),
-                'schemaType' => $all['schema-page-type-' . $type] ?? null,
-                'schema' => [
-                    'raw' =>
-                        !empty($meta) && !empty($meta->schema)
-                            ? json_encode($meta->schema, JSON_UNESCAPED_SLASHES)
+                    'schema' => [
+                        'raw' => !empty($meta->schema) ? json_encode($meta->schema, JSON_UNESCAPED_SLASHES) : null,
+                    ],
+                    'archive' => [
+                        'hasArchive' => boolval($post_type_object->has_archive),
+                        'archiveLink' => apply_filters(
+                            'wp_gql_seo_archive_link',
+                            get_post_type_archive_link($type),
+                            $type
+                        ),
+                        'title' => !empty($meta->title) ? wp_gql_seo_format_string($meta->title) : null,
+                        'metaDesc' => !empty($all['metadesc-ptarchive-' . $type])
+                            ? wp_gql_seo_format_string($all['metadesc-ptarchive-' . $type])
                             : null,
-                ],
-                'archive' => [
-                    'hasArchive' => boolval($post_type_object->has_archive),
-                    'archiveLink' => apply_filters('wp_gql_seo_archive_link', get_post_type_archive_link($type), $type),
-                    'title' => wp_gql_seo_format_string($meta->title ?? null),
-                    'metaDesc' => wp_gql_seo_format_string($all['metadesc-ptarchive-' . $type] ?? null),
-                    'metaRobotsNoindex' =>
-                        !empty($meta) && !empty($meta->robots['index']) && $meta->robots['index'] === 'index'
-                            ? false
-                            : true,
-                    'metaRobotsNofollow' =>
-                        !empty($meta) && !empty($meta->robots['follow']) && $meta->robots['follow'] === 'follow'
-                            ? false
-                            : true,
-                    'metaRobotsIndex' => $meta->robots['index'] ?? 'noindex',
-                    'metaRobotsFollow' => $meta->robots['follow'] ?? 'nofollow',
-                    'breadcrumbTitle' => wp_gql_seo_format_string($all['bctitle-ptarchive-' . $type] ?? null),
-                    'fullHead' => wp_gql_seo_get_full_head($meta),
-                ],
-            ];
-        }
-
-        return $carry;
-    }
-
-    function wp_gql_seo_build_taxonomy_data($taxonomies, $all)
-    {
-        $carry = [];
-
-        // Validate input parameters
-        if (!is_array($taxonomies) || empty($taxonomies) || !is_array($all) || empty($all)) {
-            return $carry;
-        }
-
-        foreach ($taxonomies as $taxonomy) {
-            $taxonomy_object = get_taxonomy($taxonomy);
-
-
-            // Validate taxonomy object
-            if (!$taxonomy_object || !$taxonomy_object->graphql_single_name) {
-                continue;
+                        'metaRobotsNoindex' =>
+                            !empty($meta->robots['index']) && $meta->robots['index'] === 'index' ? false : true,
+                        'metaRobotsNofollow' =>
+                            !empty($meta->robots['follow']) && $meta->robots['follow'] === 'follow' ? false : true,
+                        'metaRobotsIndex' => !empty($meta->robots['index']) ? $meta->robots['index'] : 'noindex',
+                        'metaRobotsFollow' => !empty($meta->robots['follow']) ? $meta->robots['follow'] : 'nofollow',
+                        'breadcrumbTitle' => !empty($all['bctitle-ptarchive-' . $type])
+                            ? wp_gql_seo_format_string($all['bctitle-ptarchive-' . $type])
+                            : null,
+                        'fullHead' => is_string($meta->get_head()) ? $meta->get_head() : $meta->get_head()->html,
+                    ],
+                ];
             }
-
-            $tag = wp_gql_seo_get_field_key($taxonomy_object->graphql_single_name);
-            $carry[$tag] = [
-                'archive' => [
-                    'title' => wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['title-tax-' . $taxonomy] ?? null)),
-                    'metaDesc' => wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['metadesc-tax-' . $taxonomy] ?? null)),
-                    'metaRobotsNoindex' => boolval($all['noindex-tax-' . $taxonomy] ?? false),
-                ],
-            ];
         }
-
         return $carry;
-    }
-
-    function wp_gql_seo_get_post_type_graphql_fields($post, array $args, AppContext $context)
-    {
-        // Base array
-        $seo = [];
-
-        $map = [
-            '@id' => 'id',
-            '@type' => 'type',
-            '@graph' => 'graph',
-            '@context' => 'context',
-        ];
-        if ($post instanceof Term) {
-            $meta = YoastSEO()->meta->for_term($post->term_id);
-        } else {
-            $meta = YoastSEO()->meta->for_post($post->ID);
-        }
-
-        $schemaArray = $meta !== false ? $meta->schema : [];
-
-        // https://developer.yoast.com/blog/yoast-seo-14-0-using-yoast-seo-surfaces/
-        $robots = $meta !== false ? $meta->robots : [];
-
-        // Get data
-        $seo = [
-            'title' => wp_gql_seo_format_string($meta !== false ? $meta->title : ''),
-            'metaDesc' => wp_gql_seo_format_string($meta !== false ? $meta->description : ''),
-            'focuskw' => wp_gql_seo_format_string(get_post_meta($post->ID, '_yoast_wpseo_focuskw', true)),
-            'metaKeywords' => wp_gql_seo_format_string(get_post_meta($post->ID, '_yoast_wpseo_metakeywords', true)),
-            'metaRobotsNoindex' => $robots['index'] ?? '',
-            'metaRobotsNofollow' => $robots['follow'] ?? '',
-            'opengraphTitle' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_title : ''),
-            'opengraphUrl' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_url : ''),
-            'opengraphSiteName' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_site_name : ''),
-            'opengraphType' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_type : ''),
-            'opengraphAuthor' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_article_author : ''),
-            'opengraphPublisher' => wp_gql_seo_format_string(
-                $meta !== false ? $meta->open_graph_article_publisher : ''
-            ),
-            'opengraphPublishedTime' => wp_gql_seo_format_string(
-                $meta !== false ? $meta->open_graph_article_published_time : ''
-            ),
-            'opengraphModifiedTime' => wp_gql_seo_format_string(
-                $meta !== false ? $meta->open_graph_article_modified_time : ''
-            ),
-            'opengraphDescription' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_description : ''),
-            'opengraphImage' => function () use ($post, $context, $meta) {
-                $id = wp_gql_seo_get_og_image($meta !== false ? $meta->open_graph_images : []);
-
-                return $context->get_loader('post')->load_deferred(absint($id));
-            },
-            'twitterCardType' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_card : ''),
-            'twitterTitle' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_title : ''),
-            'twitterDescription' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_description : ''),
-            'twitterImage' => function () use ($post, $context, $meta) {
-                $twitter_image = $meta->twitter_image;
-
-                if (empty($twitter_image)) {
-                    return null;
-                }
-
-                $id = wpcom_vip_attachment_url_to_postid($twitter_image);
-
-                return $context->get_loader('post')->load_deferred(absint($id));
-            },
-            'canonical' => wp_gql_seo_format_string($meta !== false ? $meta->canonical : ''),
-            'readingTime' => floatval($meta !== false ? $meta->estimated_reading_time_minutes : ''),
-            'breadcrumbs' => $meta !== false ? $meta->breadcrumbs : [],
-            // TODO: Default should be true or false?
-            'cornerstone' => boolval($meta !== false ? $meta->indexable->is_cornerstone : false),
-            'fullHead' => wp_gql_seo_get_full_head($meta),
-            'schema' => [
-                'pageType' => $meta !== false && is_array($meta->schema_page_type) ? $meta->schema_page_type : [],
-                'articleType' =>
-                    $meta !== false && is_array($meta->schema_article_type) ? $meta->schema_article_type : [],
-                'raw' => json_encode($schemaArray, JSON_UNESCAPED_SLASHES),
-            ],
-        ];
-
-        return !empty($seo) ? $seo : null;
     }
 
     add_action('graphql_register_types', function () {
         $post_types = \WPGraphQL::get_allowed_post_types();
         $taxonomies = \WPGraphQL::get_allowed_taxonomies();
-
-        $allTypes = wp_gql_seo_build_content_types($post_types);
-        $allTaxonomies = wp_gql_seo_build_taxonomy_types($taxonomies);
 
         // If WooCommerce installed then add these post types and taxonomies
         if (class_exists('\WooCommerce')) {
@@ -649,30 +518,11 @@ add_action('graphql_init', function () {
             ],
         ]);
 
+        $allTypes = wp_gql_seo_build_content_types($post_types);
+
         register_graphql_object_type('SEOContentTypes', [
             'description' => __('The Yoast SEO search appearance content types', 'wp-graphql-yoast-seo'),
             'fields' => $allTypes,
-        ]);
-
-
-           register_graphql_object_type('SEOTaxonomyTypeArchive', [
-            'description' => __('The Yoast SEO search appearance Taxonomy types fields', 'wp-graphql-yoast-seo'),
-            'fields' => [
-                'title' => ['type' => 'String'],
-                'metaDesc' => ['type' => 'String'],
-                'metaRobotsNoindex' => ['type' => 'Boolean'],
-            ],
-        ]);
-        register_graphql_object_type('SEOTaxonomyType', [
-            'description' => __('The Yoast SEO search appearance Taxonomy types fields', 'wp-graphql-yoast-seo'),
-            'fields' => [
-                'archive' => ['type' => 'SEOTaxonomyTypeArchive'],
-            ],
-        ]);
-
-        register_graphql_object_type('SEOTaxonomyTypes', [
-            'description' => __('The Yoast SEO archive configuration data for taxonomies', 'wp-graphql-yoast-seo'),
-            'fields' =>  $allTaxonomies,
         ]);
 
         register_graphql_object_type('SEOConfig', [
@@ -690,7 +540,6 @@ add_action('graphql_init', function () {
                 ],
                 'openGraph' => ['type' => 'SEOOpenGraph'],
                 'contentTypes' => ['type' => 'SEOContentTypes'],
-                'taxonomyArchives' => ['type' => 'SEOTaxonomyTypes'],
             ],
         ]);
 
@@ -755,7 +604,7 @@ add_action('graphql_init', function () {
         register_graphql_field('RootQuery', 'seo', [
             'type' => 'SEOConfig',
             'description' => __('Returns seo site data', 'wp-graphql-yoast-seo'),
-            'resolve' => function ($source, array $args, AppContext $context) use ($post_types, $taxonomies) {
+            'resolve' => function ($source, array $args, AppContext $context) use ($post_types) {
                 $wpseo_options = WPSEO_Options::get_instance();
                 $all = $wpseo_options->get_all();
                 $redirectsObj = class_exists('WPSEO_Redirect_Option') ? new WPSEO_Redirect_Option() : false;
@@ -774,7 +623,6 @@ add_action('graphql_init', function () {
                 };
 
                 $contentTypes = wp_gql_seo_build_content_type_data($post_types, $all);
-                $taxonomyTypes = wp_gql_seo_build_taxonomy_data($taxonomies, $all);
 
                 $homepage = [
                     'title' => wp_gql_seo_format_string(wp_gql_seo_replace_vars($all['title-home-wpseo'])),
@@ -798,7 +646,6 @@ add_action('graphql_init', function () {
 
                 return [
                     'contentTypes' => $contentTypes,
-                    'taxonomyArchives' => $taxonomyTypes,
                     'meta' => [
                         'homepage' => $homepage,
                         'author' => $author,
@@ -889,37 +736,107 @@ add_action('graphql_init', function () {
                                 ->load_deferred(absint($all['open_graph_frontpage_image_id'])),
                         ],
                     ],
-               
                 ];
             },
         ]);
+
+        function get_post_type_graphql_fields($post, array $args, AppContext $context)
+        {
+            // Base array
+            $seo = [];
+
+            $map = [
+                '@id' => 'id',
+                '@type' => 'type',
+                '@graph' => 'graph',
+                '@context' => 'context',
+            ];
+            if( $post instanceof Term ){
+                $meta = YoastSEO()->meta->for_term($post->term_id);
+            } else {
+                $meta = YoastSEO()->meta->for_post($post->ID);
+            }
+
+            $schemaArray = $meta !== false ? $meta->schema : [];
+
+            // https://developer.yoast.com/blog/yoast-seo-14-0-using-yoast-seo-surfaces/
+            $robots = $meta !== false ? $meta->robots : [];
+
+            // Get data
+            $seo = [
+                'title' => wp_gql_seo_format_string($meta !== false ? $meta->title : ''),
+                'metaDesc' => wp_gql_seo_format_string($meta !== false ? $meta->description : ''),
+                'focuskw' => wp_gql_seo_format_string(get_post_meta($post->ID, '_yoast_wpseo_focuskw', true)),
+                'metaKeywords' => wp_gql_seo_format_string(get_post_meta($post->ID, '_yoast_wpseo_metakeywords', true)),
+                'metaRobotsNoindex' => $robots['index'] ?? '',
+                'metaRobotsNofollow' => $robots['follow'] ?? '',
+                'opengraphTitle' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_title : ''),
+                'opengraphUrl' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_url : ''),
+                'opengraphSiteName' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_site_name : ''),
+                'opengraphType' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_type : ''),
+                'opengraphAuthor' => wp_gql_seo_format_string($meta !== false ? $meta->open_graph_article_author : ''),
+                'opengraphPublisher' => wp_gql_seo_format_string(
+                    $meta !== false ? $meta->open_graph_article_publisher : ''
+                ),
+                'opengraphPublishedTime' => wp_gql_seo_format_string(
+                    $meta !== false ? $meta->open_graph_article_published_time : ''
+                ),
+                'opengraphModifiedTime' => wp_gql_seo_format_string(
+                    $meta !== false ? $meta->open_graph_article_modified_time : ''
+                ),
+                'opengraphDescription' => wp_gql_seo_format_string(
+                    $meta !== false ? $meta->open_graph_description : ''
+                ),
+                'opengraphImage' => function () use ($post, $context, $meta) {
+                    $id = wp_gql_seo_get_og_image($meta !== false ? $meta->open_graph_images : []);
+
+                    return $context->get_loader('post')->load_deferred(absint($id));
+                },
+                'twitterCardType' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_card : ''),
+                'twitterTitle' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_title : ''),
+                'twitterDescription' => wp_gql_seo_format_string($meta !== false ? $meta->twitter_description : ''),
+                'twitterImage' => function () use ($post, $context, $meta) {
+                    $twitter_image = $meta->twitter_image;
+
+                    if (empty($twitter_image)) {
+                        return __return_empty_string();
+                    }
+
+                    $id = wpcom_vip_attachment_url_to_postid($twitter_image);
+
+                    return $context->get_loader('post')->load_deferred(absint($id));
+                },
+                'canonical' => wp_gql_seo_format_string($meta !== false ? $meta->canonical : ''),
+                'readingTime' => floatval($meta !== false ? $meta->estimated_reading_time_minutes : ''),
+                'breadcrumbs' => $meta !== false ? $meta->breadcrumbs : [],
+                // TODO: Default should be true or false?
+                'cornerstone' => boolval($meta !== false ? $meta->indexable->is_cornerstone : false),
+                'fullHead' => wp_gql_seo_get_full_head($meta),
+                'schema' => [
+                    'pageType' => $meta !== false && is_array($meta->schema_page_type) ? $meta->schema_page_type : [],
+                    'articleType' =>
+                        $meta !== false && is_array($meta->schema_article_type) ? $meta->schema_article_type : [],
+                    'raw' => json_encode($schemaArray, JSON_UNESCAPED_SLASHES),
+                ],
+            ];
+
+            return !empty($seo) ? $seo : null;
+        }
 
         register_graphql_field('ContentNode', 'seo', [
             'type' => 'PostTypeSEO',
             'description' => __('The Yoast SEO data of the ContentNode', 'wp-graphql-yoast-seo'),
             'resolve' => function ($post, array $args, AppContext $context) {
-                return wp_gql_seo_get_post_type_graphql_fields($post, $args, $context);
+                return get_post_type_graphql_fields($post, $args, $context);
             },
         ]);
         register_graphql_field('NodeWithTitle', 'seo', [
             'type' => 'PostTypeSEO',
             'description' => __('The Yoast SEO data of the ContentNode', 'wp-graphql-yoast-seo'),
             'resolve' => function ($post, array $args, AppContext $context) {
-                return wp_gql_seo_get_post_type_graphql_fields($post, $args, $context);
+                return get_post_type_graphql_fields($post, $args, $context);
             },
         ]);
-
-        // if woocommerce is active, add seo to product
-        if (class_exists('WooCommerce')) {
-            register_graphql_field('Product', 'seo', [
-                'type' => 'PostTypeSEO',
-                'description' => __('The Yoast SEO data of the ContentNode', 'wp-graphql-yoast-seo'),
-                'resolve' => function ($post, array $args, AppContext $context) {
-                    return wp_gql_seo_get_post_type_graphql_fields($post, $args, $context);
-                },
-            ]);
-        }
-
         // TODO connect to content node
         // Post Type SEO Data
         if (!empty($post_types) && is_array($post_types)) {
@@ -982,11 +899,6 @@ add_action('graphql_init', function () {
             'type' => 'SEOUser',
             'description' => __('The Yoast SEO data of a user', 'wp-graphql-yoast-seo'),
             'resolve' => function ($user, array $args, AppContext $context) {
-                // Author has no posts
-                if (!YoastSEO()->meta->for_author($user->userId)) {
-                    return [];
-                }
-
                 $robots = YoastSEO()->meta->for_author($user->userId)->robots;
 
                 $schemaArray = YoastSEO()->meta->for_author($user->userId)->schema;
@@ -1010,7 +922,17 @@ add_action('graphql_init', function () {
                     'language' => YoastSEO()->meta->for_author($user->userId)->language,
                     'region' => YoastSEO()->meta->for_author($user->userId)->region,
                     'breadcrumbTitle' => YoastSEO()->meta->for_author($user->userId)->breadcrumb_title,
-                    'fullHead' => wp_gql_seo_get_full_head(YoastSEO()->meta->for_author($user->userId)),
+                    'fullHead' => is_string(
+                        YoastSEO()
+                            ->meta->for_author($user->userId)
+                            ->get_head()
+                    )
+                        ? YoastSEO()
+                            ->meta->for_author($user->userId)
+                            ->get_head()
+                        : YoastSEO()
+                            ->meta->for_author($user->userId)
+                            ->get_head()->html,
                     'social' => [
                         'facebook' => wp_gql_seo_format_string(get_the_author_meta('facebook', $user->userId)),
                         'twitter' => wp_gql_seo_format_string(get_the_author_meta('twitter', $user->userId)),
@@ -1124,12 +1046,21 @@ add_action('graphql_init', function () {
                                 : null,
                             'breadcrumbs' => YoastSEO()->meta->for_term($term->term_id)->breadcrumbs,
                             'cornerstone' => boolval(YoastSEO()->meta->for_term($term->term_id)->is_cornerstone),
-                            'fullHead' => wp_gql_seo_get_full_head(YoastSEO()->meta->for_term($term->term_id)),
+                            'fullHead' => is_string(
+                                YoastSEO()
+                                    ->meta->for_term($term->term_id)
+                                    ->get_head()
+                            )
+                                ? YoastSEO()
+                                    ->meta->for_term($term->term_id)
+                                    ->get_head()
+                                : YoastSEO()
+                                    ->meta->for_term($term->term_id)
+                                    ->get_head()->html,
                             'schema' => [
                                 'raw' => json_encode($schemaArray, JSON_UNESCAPED_SLASHES),
                             ],
                         ];
-
                         wp_reset_query();
 
                         return !empty($seo) ? $seo : null;

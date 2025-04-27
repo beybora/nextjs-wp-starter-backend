@@ -3,6 +3,7 @@
 Minimal WordPress backend setup for headless CMS with Next.js.
 
 Includes:
+
 - Clean WordPress core
 - Blocksy-based child theme
 - Custom Gutenberg blocks (plugin-based)
@@ -32,14 +33,6 @@ WordPress will be available at `http://nextjs-wp-starter-backend.lndo.site`.
 
 ```bash
 cd wp-content/plugins/custom-gutenberg-blocks
-npm install
-npm run build
-```
-
-### 4. (Optional) Build Theme Assets
-
-```bash
-cd wp-content/themes/blocksy
 npm install
 npm run build
 ```

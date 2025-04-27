@@ -1,11 +1,9 @@
-# Composer vendor
-vendor/
+
 
 # IDEs & System
 .DS_Store
 .idea/
 .vscode/
-
 
 # WordPress files and folders
 wp-activate.php
@@ -25,14 +23,15 @@ wp-config.php
 wp-content/cache/*
 
 # WordPress admin and includes
-wp-admin
-wp-includes
+wp-admin/
+wp-includes/
 
 # Environment files
 .env
 .env.*
 
-# WordPress uploads (media cache)
+# WordPress uploads and theme (media cache)
+wp-content/themes/*
 wp-content/uploads/*
 !wp-content/uploads/.gitkeep
 

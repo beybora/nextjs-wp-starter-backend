@@ -1,0 +1,50 @@
+<# Composer vendor
+themes/blocksy/node_modules/
+themes/blocksy/vendor/
+
+# IDEs & System
+.DS_Store
+.idea/
+.vscode/
+
+# WordPress files and folders 
+../wp-activate.php
+../wp-blog-header.php
+../wp-comments-post.php
+../wp-config-sample.php
+../wp-cron.php
+../wp-links-opml.php
+../wp-load.php
+../wp-login.php
+../wp-mail.php
+../xmlrpc.php
+../wp-trackback.php
+../wp-signup.php
+../wp-settings.php
+../wp-config.php
+
+# WordPress Admin und Includes
+../wp-admin/
+../wp-includes/
+
+# Environment files
+../.env
+../.env.*
+
+# WordPress uploads
+uploads/
+
+# Themes 
+themes/*
+
+# Local-only config
+../wp-config-local.php
+
+# Optional: Tests & logs
+*.log
+phpunit.xml
+
+# Map files & build artifacts
+*.asset.php
+*.map
+>
